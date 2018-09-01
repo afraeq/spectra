@@ -2,164 +2,179 @@
 # -*- coding: utf-8 -*-
 
 import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
 
 class spectra (object):
-    
-    #########################
-    
-    def __init__ (self,data,data2=[]):
-        
-        # dados a serem analisados
-        self.data = np.squeeze(np.asarray(data, dtype=np.float64))
-        self.data2 = np.squeeze(np.asarray(data2, dtype=np.float64))
-        
-        # número de pontos
-        self.ND = self.data.size
-        self.ND2 = self.data2.size
 
     #########################
-        
-    def sliding_Window_Var_Spectra (self):
-        
-        # variável que armazenará o espectro
-        self.spctr_var_sliding = np.zeros(self.ND)
-                
-        # para cada tamanho de janela...
-        for TJ in range (2,self.ND):
-            
-            # ... calcule o número de janelas ...
-            NJ = self.ND - TJ +1
-            
-            # ... inicialize a soma ...
-            soma = 0
-            
-            # ... e calcule o somatorio das variâncias de cada janela
-            for i in range(0,NJ):
-                soma += np.var(self.data[i:i+TJ])
-                
-            self.spctr_var_sliding[TJ] = soma/NJ
-                                            
+
+    def __init__ (self,data):
+
+        data = np.asarray(data)
+
+        if data.ndim==1:
+            self.data = data[:,np.newaxis]
+        elif data.ndim==2:
+                self.data = data
+        else:
+            raise ValueError('Entry must have 1 or 2 dimensions!')
+
+        self.var_spctr   = {}
+        self.cov_spctr   = {}
+        self.corr_spctr  = {}
+        self.m_var_spctr = {}
+
+        kinds = ['sliding','independent']
+
+        for kind in kinds:
+            self.var_spctr   [kind] = {}
+            self.cov_spctr   [kind] = {}
+            self.corr_spctr  [kind] = {}
+            self.m_var_spctr [kind] = {}
+
+        self.spctr_size = {}
+        self.spctr_size['sliding']     = self.data.shape[0]+1
+        self.spctr_size['independent'] = int(self.data.shape[0]/2+1)
+
+        # https://stackoverflow.com/questions/39232790
+        self.idx = {}
+        self.idx['sliding'] =     lambda WS: (np.arange(self.data.shape[0]-WS+1)[:,None] +
+                                              np.arange(WS))
+        self.idx['independent'] = lambda WS: (WS*np.arange(int(self.data.shape[0]/WS))[:,None] +
+                                              np.arange(WS))
+
     #########################
 
-    def independent_Window_Var_Spectra (self):
-        
-        # variável que armazenará o espectro
-        self.spctr_var_ind = np.zeros(int(self.ND/2))
-        
-        # para cada tamanho de janela...
-        for TJ in range (2,int(self.ND/2)):
+    def calc_Var_Spectra (self,kind='sliding'):
 
-            # ... calcule o número de janelas ...
-            NJ = int(self.ND/TJ)
-            
-            # ... inicialize a soma ...
-            soma = 0
-            
-            # ... e calcule o somatorio das variâncias de cada janela
-            for i in range(NJ):
-                soma += np.var(self.data[i*TJ:(i+1)*TJ])
-                
-            self.spctr_var_ind[TJ] = soma/NJ
-            
+        spctr_size = self.spctr_size[kind]
+        idx = self.idx[kind]
+
+        var_spctr_mean = np.zeros((spctr_size,self.data.shape[1]))
+        var_spctr_median = np.zeros((spctr_size,self.data.shape[1]))
+
+        for WS in range(2,spctr_size):
+            win = self.data[idx(WS)]
+            var = np.var(win,ddof=1,axis=1)
+            var_spctr_mean[WS,:]   = np.mean(var,axis=0)
+            var_spctr_median[WS,:] = np.median(var,axis=0)
+
+        self.var_spctr[kind]['mean'] =   var_spctr_mean
+        self.var_spctr[kind]['median'] = var_spctr_median
+
+    ################################################
+
+    def calc_Cov_Spectra (self, kind='sliding'):
+
+        spctr_size = self.spctr_size[kind]
+        idx = self.idx[kind]
+
+        cov_spctr_mean  = np.zeros((spctr_size,self.data.shape[1],self.data.shape[1]))
+        corr_spctr_mean = np.zeros((spctr_size,self.data.shape[1],self.data.shape[1]))
+
+        # https://stackoverflow.com/questions/26089893
+        # https://stackoverflow.com/questions/40394775
+
+        for WS in range(2,spctr_size):
+            win = self.data[idx(WS)]
+            m1 = win - win.sum(axis=1,keepdims=True)/win.shape[1]
+            Sxx = np.einsum('ijk,ijl->ikl',m1,m1)/(win.shape[1] - 1)
+            Sxx_mean = np.einsum('ijk->jk',Sxx)/win.shape[0]
+            cov_spctr_mean[WS,:,:] = Sxx_mean
+            Dinv = np.linalg.inv(np.diag(np.sqrt(np.diag(Sxx_mean))))
+            corr_spctr_mean[WS,:,:] = Dinv@Sxx_mean@Dinv
+
+        self.cov_spctr[kind]['mean']  = cov_spctr_mean
+        self.corr_spctr[kind]['mean'] = corr_spctr_mean
+
     #########################
-            
-    def sliding_Window_Cov_Spectra (self):
-        
-        # variável que armazenará o espectro
-        self.spctr_cov_sliding = np.zeros(self.ND)
-        self.spctr_corr_sliding = np.zeros(self.ND)
-                
-        # para cada tamanho de janela...
-        for TJ in range (2,self.ND):
-            
-            # ... calcule o número de janelas ...
-            NJ = self.ND - TJ +1
-            
-            # ... inicialize as somas ...
-            soma1 = 0
-            soma2 = 0
-            
-            # ... e calcule os somatorios das covariâncias e das correlações de cada janela
-            for i in range(0,NJ):
-                soma1 += np.cov(self.data[i:i+TJ],self.data2[i:i+TJ])[0,1]
-                soma2 += np.corrcoef(self.data[i:i+TJ],self.data2[i:i+TJ])[0,1]
 
-            self.spctr_cov_sliding[TJ] = soma1/NJ
-            self.spctr_corr_sliding[TJ] = soma2/NJ
-                                            
+    def calc_Multi_Var_Spectra (self, kind='sliding'):
+
+        from sklearn.preprocessing import scale
+        data = scale(self.data)
+
+        spctr_size = self.spctr_size[kind]
+        idx = self.idx[kind]
+
+        m_var_spctr_mean = np.zeros((spctr_size,data.shape[1]))
+
+        for WS in range(data.shape[1],spctr_size):
+            win = data[idx(WS)]
+            m1 = win - win.sum(axis=1,keepdims=True)/win.shape[1]
+            Sxx = np.einsum('ijk,ijl->ikl',m1,m1)/(win.shape[1] - 1)
+            Sxx_mean = np.einsum('ijk->jk',Sxx)/win.shape[0]
+            _, L, _ = np.linalg.svd(Sxx_mean)
+            m_var_spctr_mean[WS,:] = L
+
+        self.m_var_spctr[kind]['mean'] = m_var_spctr_mean
+
     #########################
-    
-    def independent_Window_Cov_Spectra (self):
-        
-        # variável que armazenará o espectro
-        self.spctr_cov_ind = np.zeros(int(self.ND/2))
-        self.spctr_corr_ind = np.zeros(int(self.ND/2))
-        
-        # para cada tamanho de janela...
-        for TJ in range (2,int(self.ND/2)):
 
-            # ... calcule o número de janelas ...
-            NJ = int(self.ND/TJ)
-            
-            # ... inicialize a soma ...
-            soma1 = 0
-            soma2 = 0
-            
-            # ... e calcule os somatorios das covariâncias e das correlações de cada janela
-            for i in range(NJ):
-                soma1 += np.cov(self.data[i*TJ:(i+1)*TJ],self.data2[i*TJ:(i+1)*TJ])[0,1]
-                soma2 += np.corrcoef(self.data[i*TJ:(i+1)*TJ],self.data2[i*TJ:(i+1)*TJ])[0,1]
-            
-            self.spctr_cov_ind[TJ] = soma1/NJ
-            self.spctr_corr_ind[TJ] = soma2/NJ
-                
+    def plot_Var_Spectra(self,i=None,ax=None,mean_or_median='mean'):
+
+        if i==None:
+            i= np.arange(self.data.shape[1])
+        if ax == None:
+            ax = plt.gca()
+        if self.var_spctr['sliding']:
+            ax.set_prop_cycle(None)
+            pd.DataFrame(self.var_spctr['sliding'][mean_or_median][:,i]).plot(ax=ax)
+        if self.var_spctr['independent']:
+            ax.set_prop_cycle(None)
+            pd.DataFrame(self.var_spctr['independent'][mean_or_median][:,i]).plot(ax=ax,
+                                                                                  linestyle='',
+                                                                                  marker='.')
+        ax.set_xlabel('Window size')
+        ax.set_ylabel('$\sigma^2$');
+        ax.legend_.remove()
+        ax.margins(0);
+
     #########################
-    
-    def plot_Var_Spectra (self, ax):
-                
-        if hasattr (self, 'spctr_var_sliding') and hasattr (self, 'spctr_var_ind'):
-        
-            ax.plot(np.arange(len(self.spctr_var_sliding)),self.spctr_var_sliding,label='Janela deslizante')
-            ax.plot(np.arange(len(self.spctr_var_ind)),self.spctr_var_ind,'.',label='Janelas independentes')
-            
-        elif hasattr (self,'spctr_var_sliding') and not hasattr (self, 'spctr_var_ind'):
-              
-            ax.plot(np.arange(len(self.spctr_var_sliding)),self.spctr_var_sliding)
 
-        elif hasattr (self,'spctr_var_ind') and not hasattr (self, 'spctr_var_sliding'):
-              
-            ax.plot(np.arange(len(self.spctr_var_ind)),self.spctr_var_ind,'.')
-                        
-    #########################            
-            
-    def plot_Cov_Spectra (self, ax):
-                
-        if hasattr (self, 'spctr_cov_sliding') and hasattr (self, 'spctr_cov_ind'):
-        
-            ax.plot(np.arange(len(self.spctr_cov_sliding)),self.spctr_cov_sliding,label='Janela deslizante')
-            ax.plot(np.arange(len(self.spctr_cov_ind)),self.spctr_cov_ind,'.',label='Janelas independentes')
-            
-        elif hasattr (self,'spctr_cov_sliding') and not hasattr (self, 'spctr_cov_ind'):
-              
-            ax.plot(np.arange(len(self.spctr_cov_sliding)),self.spctr_cov_sliding,'.')
+    def plot_Cov_Spectra(self,i,j,ax=None,mean_or_median='mean',corr_or_cov='corr'):
 
-        elif hasattr (self,'spctr_cov_ind') and not hasattr (self, 'spctr_cov_sliding'):
-              
-            ax.plot(np.arange(len(self.spctr_cov_ind)),self.spctr_cov_ind,'.')
+        if ax == None:
+            ax = plt.gca()
 
-    #########################            
-            
-    def plot_Corr_Spectra (self, ax):
-                
-        if hasattr (self, 'spctr_corr_sliding') and hasattr (self, 'spctr_corr_ind'):
-        
-            ax.plot(np.arange(len(self.spctr_corr_sliding)),self.spctr_corr_sliding,label='Janela deslizante')
-            ax.plot(np.arange(len(self.spctr_corr_ind)),self.spctr_corr_ind,'.',label='Janelas independentes')
-            
-        elif hasattr (self,'spctr_corr_sliding') and not hasattr (self, 'spctr_corr_ind'):
-              
-            ax.plot(np.arange(len(self.spctr_corr_sliding)),self.spctr_corr_sliding,'.')
+        if corr_or_cov == 'corr':
+            spctr = self.corr_spctr
+            ylabel='$r_{ij}$'
+        elif corr_or_cov == 'cov':
+            spctr = self.cov_spctr
+            ylabel='$\sigma_{ij}^2$'
 
-        elif hasattr (self,'spctr_corr_ind') and not hasattr (self, 'spctr_corr_sliding'):
-              
-            ax.plot(np.arange(len(self.spctr_corr_ind)),self.spctr_corr_ind,'.')
+        if spctr['sliding']:
+            ax.set_prop_cycle(None)
+            pd.DataFrame(spctr['sliding'][mean_or_median][:,i,j]).plot(ax=ax);
+        if spctr['independent']:
+            ax.set_prop_cycle(None)
+            pd.DataFrame(spctr['independent'][mean_or_median][:,i,j]).plot(ax=ax,
+                                                                           linestyle='',
+                                                                           marker='.')
+        ax.set_xlabel('Window size')
+        ax.set_ylabel(ylabel)
+        ax.legend_.remove()
+        ax.margins(0);
+
+    #########################
+
+    def plot_Multi_Var_Spectra(self,ax=None,mean_or_median='mean'):
+
+        if ax == None:
+            ax = plt.gca()
+
+        if self.m_var_spctr['sliding']:
+            ax.set_prop_cycle(None)
+            pd.DataFrame(self.m_var_spctr['sliding'][mean_or_median]).plot(ax=ax)
+        if self.m_var_spctr['independent']:
+            ax.set_prop_cycle(None)
+            pd.DataFrame(self.m_var_spctr['independent'][mean_or_median]).plot(ax=ax,
+                                                                               linestyle='',
+                                                                               marker='.')
+        ax.set_xlim([self.data.shape[1],self.m_var_spctr['sliding']['mean'].shape[0]]);
+        ax.set_xlabel('Window size')
+        ax.set_ylabel('$\lambda_i$')
+        ax.legend_.remove()
+        ax.margins(0);

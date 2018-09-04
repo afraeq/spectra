@@ -68,7 +68,7 @@ fig.tight_layout(rect=[0, 0.03, 1, 0.95])
 
 #%% test 3
 
-n=300
+n=30
 
 t3=np.arange(50)
 sinais3 = [j*t3 +np.random.randn(t3.size)*n for j in range(1,11)]

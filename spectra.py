@@ -2,7 +2,6 @@
 # -*- coding: utf-8 -*-
 
 import numpy as np
-import pandas as pd
 import matplotlib.pyplot as plt
 
 class spectra (object):
@@ -23,7 +22,11 @@ class spectra (object):
         self.var_spctr   = {}
         self.cov_spctr   = {}
         self.corr_spctr  = {}
-        self.m_var_spctr = {}
+        self.l_var_spctr = {}
+        
+        self.jump_WS_var   = {}
+        self.jump_WS_cov   = {}
+        self.jump_WS_l_var = {}
         
         kinds = ['sliding','independent']
         
@@ -31,7 +34,7 @@ class spectra (object):
             self.var_spctr   [kind] = {}
             self.cov_spctr   [kind] = {}
             self.corr_spctr  [kind] = {}
-            self.m_var_spctr [kind] = {}
+            self.l_var_spctr [kind] = {}
 
         self.spctr_size = {}            
         self.spctr_size['sliding']     = self.data.shape[0]+1
@@ -46,25 +49,29 @@ class spectra (object):
         
     #########################
                 
-    def calc_Var_Spectra (self,kind):
+    def calc_Var_Spectra (self, kind='sliding', jump_WS=1):
+        
+        self.jump_WS_var[kind] = jump_WS
                 
         spctr_size = self.spctr_size[kind]
                         
         var_spctr_mean = np.zeros((spctr_size,self.data.shape[1]))
         var_spctr_median = np.zeros((spctr_size,self.data.shape[1]))
         
-        for WS in range(2,spctr_size):
+        for WS in range(2,spctr_size,jump_WS):
             win = self.data[self.idx(WS,self.d[kind](WS))]
             var = np.var(win,ddof=1,axis=1)
             var_spctr_mean[WS,:]   = np.mean(var,axis=0)
             var_spctr_median[WS,:] = np.median(var,axis=0)
-                        
+                                
         self.var_spctr[kind]['mean']   = var_spctr_mean                                             
         self.var_spctr[kind]['median'] = var_spctr_median
 
     ################################################ 
     
-    def calc_Cov_Spectra (self, kind='sliding'):
+    def calc_Cov_Spectra (self, kind='sliding', jump_WS=1):
+        
+        self.jump_WS_cov[kind] = jump_WS
         
         spctr_size = self.spctr_size[kind]
         
@@ -74,7 +81,7 @@ class spectra (object):
         # https://stackoverflow.com/questions/26089893
         # https://stackoverflow.com/questions/40394775
         
-        for WS in range(2,spctr_size):  
+        for WS in range(2,spctr_size,jump_WS):  
             win = self.data[self.idx(WS,self.d[kind](WS))]
             m1 = win - win.sum(axis=1,keepdims=True)/win.shape[1]
             Sxx = np.einsum('ijk,ijl->ikl',m1,m1)/(win.shape[1] - 1)
@@ -88,24 +95,26 @@ class spectra (object):
 
     #########################   
     
-    def calc_Multi_Var_Spectra (self, kind='sliding'):
+    def calc_Lat_Var_Spectra (self, kind='sliding',jump_WS=1):
+        
+        self.jump_WS_l_var[kind] = jump_WS
         
         from sklearn.preprocessing import scale
         data = scale(self.data)
 
         spctr_size = self.spctr_size[kind]
         
-        m_var_spctr_mean = np.zeros((spctr_size,data.shape[1]))
+        l_var_spctr_mean = np.zeros((spctr_size,data.shape[1]))
                 
-        for WS in range(data.shape[1],spctr_size):  
+        for WS in range(data.shape[1],spctr_size,jump_WS):  
             win = data[self.idx(WS,self.d[kind](WS))]
             m1 = win - win.sum(axis=1,keepdims=True)/win.shape[1]
             Sxx = np.einsum('ijk,ijl->ikl',m1,m1)/(win.shape[1] - 1)
             Sxx_mean = np.einsum('ijk->jk',Sxx)/win.shape[0]
             _, L, _ = np.linalg.svd(Sxx_mean)
-            m_var_spctr_mean[WS,:] = L
+            l_var_spctr_mean[WS,:] = L
             
-        self.m_var_spctr[kind]['mean'] = m_var_spctr_mean
+        self.l_var_spctr[kind]['mean'] = l_var_spctr_mean
         
     #########################   
 
@@ -117,15 +126,15 @@ class spectra (object):
             ax = plt.gca() 
         if self.var_spctr['sliding']:
             ax.set_prop_cycle(None)
-            pd.DataFrame(self.var_spctr['sliding'][mean_or_median][:,i]).plot(ax=ax)
+            ax.plot(np.arange(2,self.spctr_size['sliding'],self.jump_WS_var['sliding']),
+                    self.var_spctr['sliding'][mean_or_median][2::self.jump_WS_var['sliding'],i])
         if self.var_spctr['independent']:
             ax.set_prop_cycle(None)
-            pd.DataFrame(self.var_spctr['independent'][mean_or_median][:,i]).plot(ax=ax,
-                                                                                  linestyle='',
-                                                                                  marker='.')
+            ax.plot(np.arange(2,self.spctr_size['independent'],self.jump_WS_var['independent']),
+                    self.var_spctr['independent'][mean_or_median][2::self.jump_WS_var['independent'],i],'.')
         ax.set_xlabel('Window size')
         ax.set_ylabel('$\sigma^2$')
-        ax.legend_.remove()
+        ax.set_xticks(list(ax.get_xticks()) + [2])
         ax.margins(0);
         
     ######################### 
@@ -144,33 +153,35 @@ class spectra (object):
             
         if spctr['sliding']:
             ax.set_prop_cycle(None)
-            pd.DataFrame(spctr['sliding'][mean_or_median][:,i,j]).plot(ax=ax);
+            ax.plot(np.arange(2,self.spctr_size['sliding'],self.jump_WS_cov['sliding']),
+                    spctr['sliding'][mean_or_median][2::self.jump_WS_cov['sliding'],i,j])
         if spctr['independent']:
             ax.set_prop_cycle(None)
-            pd.DataFrame(spctr['independent'][mean_or_median][:,i,j]).plot(ax=ax,
-                                                                           linestyle='',
-                                                                           marker='.')
+            ax.plot(np.arange(2,self.spctr_size['independent'],self.jump_WS_cov['independent']),
+                    spctr['independent'][mean_or_median][2::self.jump_WS_cov['independent'],i,j],'.')
+        ax.set_xticks(list(ax.get_xticks()) + [2])
         ax.set_xlabel('Window size')
         ax.set_ylabel(ylabel)
-        ax.legend_.remove()
         ax.margins(0);
         
     ######################### 
     
-    def plot_Multi_Var_Spectra(self,ax=None,mean_or_median='mean'):
+    def plot_Lat_Var_Spectra(self,ax=None,mean_or_median='mean'):
         
         if ax == None:
             ax = plt.gca() 
         
-        if self.m_var_spctr['independent']:
+        if self.l_var_spctr['independent']:
             ax.set_prop_cycle(None)
-            pd.DataFrame(self.m_var_spctr['independent'][mean_or_median]).plot(ax=ax,linestyle='',marker='.')
-            ax.set_xlim([self.data.shape[1],self.m_var_spctr['independent'][mean_or_median].shape[0]])            
-        if self.m_var_spctr['sliding']:
+            ax.plot(np.arange(2,self.spctr_size['independent'],self.jump_WS_l_var['independent']),
+                    self.l_var_spctr['independent'][mean_or_median][2::self.jump_WS_l_var['sliding']],'.')
+            ax.set_xlim([self.data.shape[1],self.l_var_spctr['independent'][mean_or_median].shape[0]])            
+        if self.l_var_spctr['sliding']:
             ax.set_prop_cycle(None)
-            pd.DataFrame(self.m_var_spctr['sliding'][mean_or_median]).plot(ax=ax)
-            ax.set_xlim([self.data.shape[1],self.m_var_spctr['sliding'][mean_or_median].shape[0]])
+            ax.plot(np.arange(2,self.spctr_size['sliding'],self.jump_WS_l_var['sliding']),
+                    self.l_var_spctr['sliding'][mean_or_median][2::self.jump_WS_l_var['sliding']])
+            
+            ax.set_xlim([self.data.shape[1],self.l_var_spctr['sliding'][mean_or_median].shape[0]])
         ax.set_xlabel('Window size')
         ax.set_ylabel('$\lambda_i$')
-        ax.legend_.remove()
         ax.margins(0);

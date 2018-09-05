@@ -20,7 +20,7 @@ sinal1 = np.sin(t1/4)
 test1 = spectra(sinal1)
 
 # calculating example 1 spectrum, with sliding windows
-test1.calc_Var_Spectra('sliding')
+test1.calc_Var_Spectra('sliding',jump_WS=2)
 
 # calculating example 1 spectrum, with independent windows
 test1.calc_Var_Spectra('independent')
@@ -39,14 +39,14 @@ fig.suptitle('Test 1');
 
 #%% test 2
 
-t2 = np.arange(1,201)
+t2 = np.arange(1,301)
 sinal2_1 = t2 +100*np.random.rand(t2.size)
 sinal2_2 = 3*t2 +100*np.random.rand(t2.size)
 
 test2 = spectra(np.array([sinal2_1,sinal2_2]).T)
 
-test2.calc_Cov_Spectra('sliding')
-test2.calc_Cov_Spectra('independent')
+test2.calc_Cov_Spectra('sliding',jump_WS=5)
+test2.calc_Cov_Spectra('independent',jump_WS=5)
 
 fig, ax = plt.subplots(1,3,figsize=(12,5))
 
@@ -68,15 +68,15 @@ fig.tight_layout(rect=[0, 0.03, 1, 0.95])
 
 #%% test 3
 
-n=30
+n=100
 
 t3=np.arange(50)
 sinais3 = [j*t3 +np.random.randn(t3.size)*n for j in range(1,11)]
 
 test3 = spectra(np.array(sinais3).T)
 
-test3.calc_Multi_Var_Spectra('sliding')
-test3.calc_Multi_Var_Spectra('independent')
+test3.calc_Lat_Var_Spectra('sliding')
+test3.calc_Lat_Var_Spectra('independent')
 
 fig, ax = plt.subplots(1,2,figsize=(12,5))
 
@@ -87,8 +87,8 @@ fig.suptitle('Test 3')
 ax[0].set_title('Simulated signals')
 ax[0].set_xlabel('t')
 
-test3.plot_Multi_Var_Spectra(ax=ax[1])
+test3.plot_Lat_Var_Spectra(ax=ax[1])
 
-ax[1].set_title('Multidimensional variance spectra')
+ax[1].set_title('Latent variance spectra')
 
 fig.tight_layout(rect=[0, 0.03, 1, 0.95])

@@ -173,15 +173,13 @@ class spectra (object):
         
         if self.l_var_spctr['independent']:
             ax.set_prop_cycle(None)
-            ax.plot(np.arange(2,self.spctr_size['independent'],self.jump_WS_l_var['independent']),
-                    self.l_var_spctr['independent'][mean_or_median][2::self.jump_WS_l_var['sliding']],'.')
-            ax.set_xlim([self.data.shape[1],self.l_var_spctr['independent'][mean_or_median].shape[0]])            
+            ax.plot(np.arange(self.data.shape[1],self.spctr_size['independent'],self.jump_WS_l_var['independent']),
+                    self.l_var_spctr['independent'][mean_or_median][self.data.shape[1]::self.jump_WS_l_var['independent']],'.')
         if self.l_var_spctr['sliding']:
             ax.set_prop_cycle(None)
-            ax.plot(np.arange(2,self.spctr_size['sliding'],self.jump_WS_l_var['sliding']),
-                    self.l_var_spctr['sliding'][mean_or_median][2::self.jump_WS_l_var['sliding']])
-            
-            ax.set_xlim([self.data.shape[1],self.l_var_spctr['sliding'][mean_or_median].shape[0]])
+            ax.plot(np.arange(self.data.shape[1],self.spctr_size['sliding'],self.jump_WS_l_var['sliding']),
+                    self.l_var_spctr['sliding'][mean_or_median][self.data.shape[1]::self.jump_WS_l_var['sliding']])            
+        ax.set_xticks(list(ax.get_xticks()) + [self.data.shape[1]])
         ax.set_xlabel('Window size')
         ax.set_ylabel('$\lambda_i$')
         ax.margins(0);

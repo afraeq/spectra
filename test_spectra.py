@@ -20,7 +20,7 @@ sinal1 = np.sin(t1/4)
 test1 = spectra(sinal1)
 
 # calculating example 1 spectrum, with sliding windows
-test1.calc_Var_Spectra('sliding',jump_WS=2)
+test1.calc_Var_Spectra('sliding')
 
 # calculating example 1 spectrum, with independent windows
 test1.calc_Var_Spectra('independent')

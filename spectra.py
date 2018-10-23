@@ -51,24 +51,30 @@ class spectra (object):
         
     #########################
                 
-    def calc_Var_Spectra (self, kind='sliding', jump_WS=1):
+    def calc_Var_Spectra (self, kind='sliding', jump_WS=1, 
+                          percentiles=[25,50,75]):
         
         self.jump_WS_var[kind] = jump_WS
                 
         spctr_size = self.spctr_size[kind]
                         
         var_spctr_mean = np.zeros((spctr_size,self.data.shape[1]))
-        var_spctr_median = np.zeros((spctr_size,self.data.shape[1]))
+
+        var_spctr_percentile = {}
+        for i in percentiles:
+            var_spctr_percentile[i] = np.zeros((spctr_size,self.data.shape[1]))
         
         for WS in range(2,spctr_size,jump_WS):
             win = self.data[self.idx(WS,self.d[kind](WS))]
             var = np.var(win,ddof=1,axis=1)
             var_spctr_mean[WS,:]   = np.mean(var,axis=0)
-            var_spctr_median[WS,:] = np.median(var,axis=0)
+            for i in percentiles:
+                var_spctr_percentile[i][WS,:] = np.percentile(var, i, axis=0)
                                 
         self.var_spctr[kind]['mean']   = var_spctr_mean                                             
-        self.var_spctr[kind]['median'] = var_spctr_median
-
+        for i in percentiles:
+            self.var_spctr[kind][i] = var_spctr_percentile[i]
+            
     ################################################ 
     
     def calc_Cov_Spectra (self, kind='sliding', jump_WS=1):
@@ -122,7 +128,8 @@ class spectra (object):
         
     #########################   
 
-    def plot_Var_Spectra(self,i=None,ax=None,mean_or_median='mean'):
+    def plot_Var_Spectra(self,i=None,ax=None,
+                         percentile='mean',conf_region=False):
         
         if i==None:
             i= np.arange(self.data.shape[1])
@@ -133,20 +140,28 @@ class spectra (object):
             ax.plot(np.arange(2,self.spctr_size['sliding'],
                               self.jump_WS_var['sliding']),
                     self.var_spctr['sliding']
-                                  [mean_or_median]
+                                  [percentile]
                                   [2::self.jump_WS_var['sliding'],i])
         if self.var_spctr['independent']:
             ax.set_prop_cycle(None)
             ax.plot(np.arange(2,self.spctr_size['independent'],
                               self.jump_WS_var['independent']),
                     self.var_spctr['independent']
-                                  [mean_or_median]
+                                  [percentile]
                                   [2::self.jump_WS_var['independent'],i],'.')
         ax.set_xlabel('Window size')
         ax.set_ylabel('$\sigma^2$')
         ax.set_xticks(list(ax.get_xticks()) + [2])
         ax.margins(0);
         
+        if conf_region:
+            ax.fill_between(np.arange(2,self.spctr_size['sliding']),
+                            self.var_spctr['sliding']
+                                          [conf_region[0]][2:].squeeze(),
+                            self.var_spctr['sliding']
+                                          [conf_region[1]][2:].squeeze(),
+                            color='aliceblue');
+            
     ######################### 
     
     def plot_Cov_Spectra(self,i,j,ax=None,

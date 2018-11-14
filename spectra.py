@@ -6,8 +6,8 @@ import matplotlib.pyplot as plt
 
 class spectra (object):
 
-    #########################
-    
+    ###########################################################################
+
     def __init__ (self,data):
                
         data = np.asarray(data)
@@ -49,29 +49,39 @@ class spectra (object):
         self.d['sliding']     = lambda WS: 1
         self.d['independent'] = lambda WS: WS
         
-    #########################
+    ###########################################################################
                 
-    def calc_Var_Spectra (self, kind='sliding', jump_WS=1):
+    def calc_Var_Spectra (self, kind='sliding', jump_WS=1, 
+                          percentiles=[]):
         
         self.jump_WS_var[kind] = jump_WS
                 
         spctr_size = self.spctr_size[kind]
                         
         var_spctr_mean = np.zeros((spctr_size,self.data.shape[1]))
-        var_spctr_median = np.zeros((spctr_size,self.data.shape[1]))
+
+        var_spctr_percentile = {}
+        
+        for i in percentiles:
+            var_spctr_percentile[i] = np.zeros((spctr_size,self.data.shape[1]))
         
         for WS in range(2,spctr_size,jump_WS):
+            
             win = self.data[self.idx(WS,self.d[kind](WS))]
             var = np.var(win,ddof=1,axis=1)
             var_spctr_mean[WS,:]   = np.mean(var,axis=0)
-            var_spctr_median[WS,:] = np.median(var,axis=0)
+            
+            for i in percentiles:
+                var_spctr_percentile[i][WS,:] = np.percentile(var, i, axis=0)
                                 
         self.var_spctr[kind]['mean']   = var_spctr_mean                                             
-        self.var_spctr[kind]['median'] = var_spctr_median
-
-    ################################################ 
+        for i in percentiles:
+            self.var_spctr[kind][i] = var_spctr_percentile[i]
+            
+    ###########################################################################
     
-    def calc_Cov_Spectra (self, kind='sliding', jump_WS=1):
+    def calc_Cov_Spectra (self, kind='sliding', jump_WS=1,
+                          percentiles=[]):
         
         self.jump_WS_cov[kind] = jump_WS
         
@@ -81,11 +91,21 @@ class spectra (object):
                                     self.data.shape[1]))
         corr_spctr_mean = np.zeros((spctr_size,self.data.shape[1],
                                     self.data.shape[1]))
-                
+
+        cov_spctr_percentile  =  {}
+        corr_spctr_percentile =  {}
+        
+        for i in percentiles:
+            cov_spctr_percentile [i] = np.zeros((spctr_size,self.data.shape[1],
+                                                self.data.shape[1]))
+            corr_spctr_percentile[i] = np.zeros((spctr_size,self.data.shape[1],
+                                                self.data.shape[1]))
+
         # https://stackoverflow.com/questions/26089893
         # https://stackoverflow.com/questions/40394775
         
         for WS in range(2,spctr_size,jump_WS):  
+            
             win = self.data[self.idx(WS,self.d[kind](WS))]
             m1 = win - win.sum(axis=1,keepdims=True)/win.shape[1]
             Sxx = np.einsum('ijk,ijl->ikl',m1,m1)/(win.shape[1] - 1)
@@ -94,12 +114,23 @@ class spectra (object):
             Dinv = np.linalg.inv(np.diag(np.sqrt(np.diag(Sxx_mean))))
             corr_spctr_mean[WS,:,:] = Dinv@Sxx_mean@Dinv
             
+            for i in percentiles:
+                Sxx_perc = np.percentile(Sxx, i, axis=0)
+                cov_spctr_percentile[i][WS,:]  = Sxx_perc
+                Dinv = np.linalg.inv(np.diag(np.sqrt(np.diag(Sxx_perc))))
+                corr_spctr_percentile[i][WS,:] = Dinv@Sxx_perc@Dinv
+
         self.cov_spctr[kind]['mean']  = cov_spctr_mean
         self.corr_spctr[kind]['mean'] = corr_spctr_mean
+        
+        for i in percentiles:
+            self.cov_spctr[kind][i]  = cov_spctr_percentile[i]
+            self.corr_spctr[kind][i] = corr_spctr_percentile[i]
 
-    #########################   
+    ###########################################################################
     
-    def calc_Lat_Var_Spectra (self, kind='sliding',jump_WS=1):
+    def calc_Lat_Var_Spectra (self, kind='sliding',jump_WS=1,
+                              percentiles=[]):
         
         self.jump_WS_l_var[kind] = jump_WS
         
@@ -109,8 +140,14 @@ class spectra (object):
         spctr_size = self.spctr_size[kind]
         
         l_var_spctr_mean = np.zeros((spctr_size,data.shape[1]))
+        
+        l_var_spctr_percentile  = {}
+        
+        for i in percentiles:
+            l_var_spctr_percentile [i] = np.zeros((spctr_size,data.shape[1]))
                 
         for WS in range(data.shape[1],spctr_size,jump_WS):  
+            
             win = data[self.idx(WS,self.d[kind](WS))]
             m1 = win - win.sum(axis=1,keepdims=True)/win.shape[1]
             Sxx = np.einsum('ijk,ijl->ikl',m1,m1)/(win.shape[1] - 1)
@@ -118,11 +155,21 @@ class spectra (object):
             _, L, _ = np.linalg.svd(Sxx_mean)
             l_var_spctr_mean[WS,:] = L
             
+            for i in percentiles:
+                Sxx_perc = np.percentile(Sxx, i, axis=0)
+                _, L, _ = np.linalg.svd(Sxx_perc)
+                l_var_spctr_percentile[i][WS,:] = L
+                                            
         self.l_var_spctr[kind]['mean'] = l_var_spctr_mean
         
-    #########################   
+        for i in percentiles:
+            self.l_var_spctr[kind][i] = l_var_spctr_percentile[i]
+        
+    ###########################################################################
 
-    def plot_Var_Spectra(self,i=None,ax=None,mean_or_median='mean'):
+    def plot_Var_Spectra(self,i=None,ax=None,
+                         percentile='mean',
+                         conf_region=False):
         
         if i==None:
             i= np.arange(self.data.shape[1])
@@ -133,25 +180,44 @@ class spectra (object):
             ax.plot(np.arange(2,self.spctr_size['sliding'],
                               self.jump_WS_var['sliding']),
                     self.var_spctr['sliding']
-                                  [mean_or_median]
+                                  [percentile]
                                   [2::self.jump_WS_var['sliding'],i])
         if self.var_spctr['independent']:
             ax.set_prop_cycle(None)
             ax.plot(np.arange(2,self.spctr_size['independent'],
                               self.jump_WS_var['independent']),
                     self.var_spctr['independent']
-                                  [mean_or_median]
+                                  [percentile]
                                   [2::self.jump_WS_var['independent'],i],'.')
         ax.set_xlabel('Window size')
         ax.set_ylabel('$\sigma^2$')
         ax.set_xticks(list(ax.get_xticks()) + [2])
         ax.margins(0);
         
-    ######################### 
+        if conf_region:
+            
+            ax.set_prop_cycle(None)
+            
+            for i in range(self.data.shape[1]):
+
+                ax.fill_between(np.arange(2,self.spctr_size['sliding'],
+                                          self.jump_WS_var['sliding']),
+                                self.var_spctr['sliding']
+                                              [conf_region[0]]
+                                              [2::self.jump_WS_var['sliding'],
+                                               i].squeeze(),
+                                self.var_spctr['sliding']
+                                              [conf_region[1]]
+                                              [2::self.jump_WS_var['sliding'],
+                                               i].squeeze(), 
+                                alpha=0.2);
+            
+    ###########################################################################
     
     def plot_Cov_Spectra(self,i,j,ax=None,
-                         mean_or_median='mean',
-                         corr_or_cov='corr'):
+                         corr_or_cov='cov',
+                         percentile='mean',
+                         conf_region=False):
 
         if ax == None:
             ax = plt.gca()        
@@ -167,22 +233,37 @@ class spectra (object):
             ax.set_prop_cycle(None)
             ax.plot(np.arange(2,self.spctr_size['sliding'],
                               self.jump_WS_cov['sliding']),
-                    spctr['sliding'][mean_or_median]
+                    spctr['sliding'][percentile]
                          [2::self.jump_WS_cov['sliding'],i,j])
         if spctr['independent']:
             ax.set_prop_cycle(None)
             ax.plot(np.arange(2,self.spctr_size['independent'],
                               self.jump_WS_cov['independent']),
-                    spctr['independent'][mean_or_median]
+                    spctr['independent'][percentile]
                          [2::self.jump_WS_cov['independent'],i,j],'.')
         ax.set_xticks(list(ax.get_xticks()) + [2])
         ax.set_xlabel('Window size')
         ax.set_ylabel(ylabel)
         ax.margins(0);
         
-    ######################### 
+        if conf_region:
+            ax.set_prop_cycle(None)
+            ax.fill_between(np.arange(2,self.spctr_size['sliding'],
+                                          self.jump_WS_cov['sliding']),
+                                spctr['sliding']
+                                     [conf_region[0]]
+                                     [2::self.jump_WS_cov['sliding'],i,j].\
+                                     squeeze(),
+                                spctr['sliding']
+                                     [conf_region[1]]
+                                     [2::self.jump_WS_cov['sliding'],i,j].\
+                                     squeeze(),
+                                alpha=0.2);
+        
+    ###########################################################################
     
-    def plot_Lat_Var_Spectra(self,ax=None,mean_or_median='mean'):
+    def plot_Lat_Var_Spectra(self,ax=None,percentile='mean',
+                             conf_region=False):
         
         if ax == None:
             ax = plt.gca() 
@@ -193,7 +274,7 @@ class spectra (object):
                               self.spctr_size['independent'],
                               self.jump_WS_l_var['independent']),
                     self.l_var_spctr['independent']
-                                    [mean_or_median]
+                                    [percentile]
                                     [self.data.shape[1]::
                                      self.jump_WS_l_var['independent']],'.')
         if self.l_var_spctr['sliding']:
@@ -202,10 +283,25 @@ class spectra (object):
                               self.spctr_size['sliding'],
                               self.jump_WS_l_var['sliding']),
                     self.l_var_spctr['sliding']
-                                    [mean_or_median]
+                                    [percentile]
                                     [self.data.shape[1]::
                                      self.jump_WS_l_var['sliding']])            
         ax.set_xticks(list(ax.get_xticks()) + [self.data.shape[1]])
         ax.set_xlabel('Window size')
         ax.set_ylabel('$\lambda_i$')
         ax.margins(0);
+        
+        if conf_region:
+            ax.set_prop_cycle(None) 
+            for i in range(self.data.shape[1]):    
+                ax.fill_between(np.arange(2,self.spctr_size['sliding'],
+                                          self.jump_WS_l_var['sliding']),
+                                self.l_var_spctr['sliding']
+                                                [conf_region[0]]
+                                             [2::self.jump_WS_l_var['sliding'],
+                                              i].squeeze(),
+                                self.l_var_spctr['sliding']
+                                                [conf_region[1]]
+                                             [2::self.jump_WS_l_var['sliding'],
+                                              i].squeeze(),
+                                alpha=0.2);                            

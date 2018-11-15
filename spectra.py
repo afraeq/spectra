@@ -445,11 +445,11 @@ class spectra_dynamics ():
            spctr=np.array([self.spctr[k].corr_spctr['sliding']['mean'][2:,i,j]\
                             for k in range(len(self.spctr))])  
         
-        normalize = mpl.colors.Normalize(0, self.windows_datetimes[:,0].size)
+        normalize = mpl.colors.Normalize(0, len(self.spctr))
         colormap = mpl.cm.plasma
         max_z = []
         
-        for l in range (self.windows_datetimes[:,0].size):
+        for l in range (len(self.spctr)):
             ax.plot(np.arange(self.spctr_size-2),
                     spctr[l],
                     zs = l, zdir='y', color=colormap(normalize(l)))

@@ -2,9 +2,13 @@
 # -*- coding: utf-8 -*-
 
 import numpy as np
+import pandas as pd
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 
-class spectra (object):
+###############################################################################
+
+class spectra ():
 
     ###########################################################################
 
@@ -126,7 +130,21 @@ class spectra (object):
         for i in percentiles:
             self.cov_spctr[kind][i]  = cov_spctr_percentile[i]
             self.corr_spctr[kind][i] = corr_spctr_percentile[i]
-
+            
+        if not self.var_spctr[kind]:
+            self.jump_WS_var[kind] = jump_WS
+            var_spctr_mean = np.zeros((spctr_size,self.data.shape[1]))
+            var_spctr_perc = {}
+            for i in percentiles:
+                var_spctr_perc[i] = np.zeros((spctr_size,self.data.shape[1]))
+            for i in range(self.data.shape[1]):
+                var_spctr_mean[:,i] = cov_spctr_mean[:,i,i]
+                for j in percentiles:
+                    var_spctr_perc[j][:,i] = cov_spctr_percentile[j][:,i,i]
+            self.var_spctr[kind]['mean'] = var_spctr_mean
+            for i in percentiles:
+                self.var_spctr[kind][i] = var_spctr_perc[i]
+            
     ###########################################################################
     
     def calc_Lat_Var_Spectra (self, kind='sliding',jump_WS=1,
@@ -304,4 +322,149 @@ class spectra (object):
                                                 [conf_region[1]]
                                              [2::self.jump_WS_l_var['sliding'],
                                               i].squeeze(),
-                                alpha=0.2);                            
+                                alpha=0.2); 
+
+###############################################################################
+
+class spectra_dynamics ():
+    
+    ###########################################################################
+    
+    def __init__ (self, data, WS, step): 
+        
+        self.has_datetime = False
+        
+        if type(data) == pd.DataFrame:
+            self.names = data.columns
+            self.index = data.index
+            if type(self.index) == pd.core.indexes.datetimes.DatetimeIndex:
+                self.has_datetime = True
+                
+        data = np.asarray(data)
+            
+        if data.ndim==1:
+            self.data = data[:,np.newaxis]
+        elif data.ndim==2:
+                self.data = data
+        else:
+            raise ValueError('Entry must have 1 or 2 dimensions!')
+            
+        self.idx = lambda WS,d: \
+        (d*np.arange((self.data.shape[0]-WS+1)/d)[:,None].astype(int) + \
+        np.arange(WS))
+        
+        self.WS = WS
+        self.step = step
+        
+        self.spctr_size = WS+1
+                
+        self.windows = self.data[self.idx(self.WS, self.step-1)]
+        
+        self.spctr = {}
+        
+        if self.has_datetime:
+            self.windows_datetimes = self.index[self.idx(self.WS, self.step-1)]
+            
+    ###########################################################################
+        
+    def calc_Spectra_Dynamics (self, stat='all'):
+                        
+        for i in range(self.windows.shape[0]):
+            self.spctr[i] = spectra(self.windows[i])
+            if stat == 'var': 
+                self.spctr[i].calc_Var_Spectra()
+            elif stat == 'cov' or stat == 'all':
+                self.spctr[i].calc_Cov_Spectra()
+            elif stat == 'lat_var' or stat == 'all' :
+                self.spctr[i].calc_Lat_Var_Spectra()
+
+    ###########################################################################
+
+    def plot_Spectra_Dynamics (self, ax=None, stat='var', i=0, j=0):
+        
+        if ax == None:
+            from mpl_toolkits.mplot3d import Axes3D
+            fig = plt.figure()
+            ax = fig.gca(projection=Axes3D.name)
+            
+        def get_Points(x,y):
+            if stat == 'var':
+                spctr = self.spctr[x].var_spctr['sliding']['mean'][2:,i]
+            elif stat == 'cov':
+                spctr = self.spctr[x].cov_spctr['sliding']['mean'][2:,i,j]
+            elif stat == 'corr':
+                spctr = self.spctr[x].corr_spctr['sliding']['mean'][2:,i,j]
+            z = spctr[y]
+            return z
+        
+        t = np.arange(self.windows.shape[0])
+        tj = np.arange(self.spctr_size-2)
+        
+        T, TJ = np.meshgrid(t, tj)
+        
+        var = np.array([get_Points(t, tj) for t, tj in zip (np.ravel(T),
+                                                            np.ravel(TJ))])
+        
+        VAR = var.reshape(T.shape)
+        
+        ax.plot_surface(TJ, T, VAR,
+                        cmap = mpl.cm.coolwarm,
+                        vmin = np.nanmin(VAR),
+                        vmax = np.nanmax(VAR))
+        
+        ax.set_xlabel('Window size')
+        ax.set_zlabel('$\sigma^2$')
+        
+        if self.has_datetime:
+            ax.yaxis.set_ticks(
+                           [i for i in range(self.windows_datetimes[:,0].size)]
+                              )
+            ax.set_yticklabels([str(i) for i in self.windows_datetimes[:,0]],
+                                horizontalalignment='left',
+                                rotation=-15)
+            for i in range(self.windows_datetimes[:,0].size):
+                if i%(int((self.windows_datetimes[:,0].size)/8))!=0:
+                    ax.yaxis.get_major_ticks()[i].set_visible(False)
+
+    ###########################################################################
+                    
+    def plot_Spectra_Dynamics_Lines (self, ax=None, stat='var', i=0, j=0):
+                                       
+        if ax == None:
+            from mpl_toolkits.mplot3d import Axes3D
+            fig = plt.figure()
+            ax = fig.gca(projection=Axes3D.name)
+        
+        if stat == 'var':
+            spctr=np.array([self.spctr[k].var_spctr['sliding']['mean'][2:,i]\
+                              for k in range(len(self.spctr))])
+        elif stat == 'cov':
+            spctr=np.array([self.spctr[k].cov_spctr['sliding']['mean'][2:,i,j]\
+                            for k in range(len(self.spctr))])        
+        elif stat == 'corr':
+           spctr=np.array([self.spctr[k].corr_spctr['sliding']['mean'][2:,i,j]\
+                            for k in range(len(self.spctr))])  
+        
+        normalize = mpl.colors.Normalize(0, self.windows_datetimes[:,0].size)
+        colormap = mpl.cm.plasma
+        max_z = []
+        
+        for l in range (self.windows_datetimes[:,0].size):
+            ax.plot(np.arange(self.spctr_size-2),
+                    spctr[l],
+                    zs = l, zdir='y', color=colormap(normalize(l)))
+            max_z.append(max(spctr[l]))
+
+        ax.set_xlabel('Window size')
+        ax.set_zlabel('$\sigma^2$')
+            
+        if self.has_datetime:
+            ax.yaxis.set_ticks(
+                           [i for i in range(self.windows_datetimes[:,0].size)]
+                              )
+            ax.set_yticklabels([str(i) for i in self.windows_datetimes[:,0]],
+                                horizontalalignment='left',
+                                rotation=-15)
+            for i in range(self.windows_datetimes[:,0].size):
+                if i%(int((self.windows_datetimes[:,0].size)/8))!=0:
+                    ax.yaxis.get_major_ticks()[i].set_visible(False)

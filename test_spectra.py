@@ -9,7 +9,10 @@ Created on Mon Jun 18 21:23:07 2018
 import numpy as np
 import matplotlib.pyplot as plt
 
+import pandas as pd
+
 from spectra import spectra
+from spectra import spectra_dynamics
 
 #%% test 1 -  variance spectra
 
@@ -35,7 +38,6 @@ ax[0].set_xlabel('Time')
 ax[0].set_title('Simulated periodic signal');
 ax[1].set_title('Variance spectra');
 fig.suptitle('Test 1');
-
 
 #%% test 2 - covariance/correlation spectra
 
@@ -254,3 +256,14 @@ test3.plot_Lat_Var_Spectra(ax=ax[1],percentile=50,conf_region=[25,75])
 ax[1].set_title('Latent variance spectra')
 
 fig.tight_layout(rect=[0, 0.03, 1, 0.95])
+
+#%% test 7 - spectra dynamics
+
+# http://openmv.net/info/flotation-cell
+flot = pd.read_csv('http://openmv.net/file/flotation-cell.csv',index_col=0)
+flot.index = pd.to_datetime(flot.index,infer_datetime_format=True)
+
+test7 = spectra_dynamics(flot.iloc[:300],WS=50,step=10)
+test7.calc_Spectra_Dynamics('cov')
+test7.plot_Spectra_Dynamics(stat='corr',i=1,j=3)
+test7.plot_Spectra_Dynamics_Lines(stat='corr',i=1,j=3)

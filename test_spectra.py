@@ -267,3 +267,4 @@ test7 = spectra_dynamics(flot.iloc[:300],WS=50,step=10)
 test7.calc_Spectra_Dynamics('cov')
 test7.plot_Spectra_Dynamics(stat='corr',i=1,j=3)
 test7.plot_Spectra_Dynamics_Lines(stat='corr',i=1,j=3)
+

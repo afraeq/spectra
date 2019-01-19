@@ -367,20 +367,21 @@ class spectra_dynamics ():
             
     ###########################################################################
         
-    def calc_Spectra_Dynamics (self, stat='all'):
+    def calc_Spectra_Dynamics (self, stat='all', percentiles = []):
                         
         for i in range(self.windows.shape[0]):
             self.spctr[i] = spectra(self.windows[i])
             if stat == 'var': 
-                self.spctr[i].calc_Var_Spectra()
+                self.spctr[i].calc_Var_Spectra(percentiles = percentiles)
             elif stat == 'cov' or stat == 'all':
-                self.spctr[i].calc_Cov_Spectra()
+                self.spctr[i].calc_Cov_Spectra(percentiles = percentiles)
             elif stat == 'lat_var' or stat == 'all' :
-                self.spctr[i].calc_Lat_Var_Spectra()
+                self.spctr[i].calc_Lat_Var_Spectra(percentiles = percentiles)
 
     ###########################################################################
 
-    def plot_Spectra_Dynamics (self, ax=None, stat='var', i=0, j=0):
+    def plot_Spectra_Dynamics (self, ax=None, stat='var', 
+                               percentile = 'mean', i=0, j=0):
         
         if ax == None:
             from mpl_toolkits.mplot3d import Axes3D
@@ -389,11 +390,11 @@ class spectra_dynamics ():
             
         def get_Points(x,y):
             if stat == 'var':
-                spctr = self.spctr[x].var_spctr['sliding']['mean'][2:,i]
+                spctr = self.spctr[x].var_spctr['sliding'][percentile][2:,i]
             elif stat == 'cov':
-                spctr = self.spctr[x].cov_spctr['sliding']['mean'][2:,i,j]
+                spctr = self.spctr[x].cov_spctr['sliding'][percentile][2:,i,j]
             elif stat == 'corr':
-                spctr = self.spctr[x].corr_spctr['sliding']['mean'][2:,i,j]
+                spctr = self.spctr[x].corr_spctr['sliding'][percentile][2:,i,j]
             z = spctr[y]
             return z
         
@@ -428,7 +429,8 @@ class spectra_dynamics ():
 
     ###########################################################################
                     
-    def plot_Spectra_Dynamics_Lines (self, ax=None, stat='var', i=0, j=0):
+    def plot_Spectra_Dynamics_Lines (self, ax=None, stat='var', 
+                                     percentile = 'mean', i=0, j=0):
                                        
         if ax == None:
             from mpl_toolkits.mplot3d import Axes3D
@@ -436,13 +438,16 @@ class spectra_dynamics ():
             ax = fig.gca(projection=Axes3D.name)
         
         if stat == 'var':
-            spctr=np.array([self.spctr[k].var_spctr['sliding']['mean'][2:,i]\
+            spctr=np.array([self.spctr[k].var_spctr['sliding']\
+                                                   [percentile][2:,i]\
                               for k in range(len(self.spctr))])
         elif stat == 'cov':
-            spctr=np.array([self.spctr[k].cov_spctr['sliding']['mean'][2:,i,j]\
+            spctr=np.array([self.spctr[k].cov_spctr['sliding']\
+                                                   [percentile][2:,i,j]\
                             for k in range(len(self.spctr))])        
         elif stat == 'corr':
-           spctr=np.array([self.spctr[k].corr_spctr['sliding']['mean'][2:,i,j]\
+           spctr=np.array([self.spctr[k].corr_spctr['sliding']\
+                                                   [percentile][2:,i,j]\
                             for k in range(len(self.spctr))])  
         
         normalize = mpl.colors.Normalize(0, len(self.spctr))

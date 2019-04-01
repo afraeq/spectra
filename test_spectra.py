@@ -125,14 +125,8 @@ ax[1,1].set_prop_cycle(None)
 
 ax[1,1].fill_between(np.arange(2,ex4_train.spctr_size['sliding'],
                                ex4_train.jump_WS_var['sliding']),
-                     ex4_train.var_spctr['sliding']
-                                        [25]
-                                        [2::ex4_train.jump_WS_var['sliding']].\
-                                        squeeze(),
-                     ex4_train.var_spctr['sliding']
-                                        [75]
-                                        [2::ex4_train.jump_WS_var['sliding']].\
-                                        squeeze(),
+                     ex4_train.lim_inf_var,
+                     ex4_train.lim_sup_var,
                      alpha=0.2);  
 
 ax[0,1].set_title('Variance spectra - training')
@@ -158,10 +152,25 @@ ax[0,0].plot(t5,sinal5_1_train)
 ax[0,0].set_prop_cycle(None)
 ax[0,0].plot(t5,sinal5_2_train)
 
-test5_train.plot_Cov_Spectra(0,1,ax=ax[0,1],corr_or_cov='cov', percentile=50,
+test5_train.plot_Cov_Spectra(0,1,ax=ax[0,1],corr_or_cov='cov', percentile=50)
+test5_train.plot_Cov_Spectra(0,1,ax=ax[0,1],corr_or_cov='cov',
                              conf_region=[40,60])
-test5_train.plot_Cov_Spectra(0,1,ax=ax[0,2],corr_or_cov='corr',percentile=50,
+
+ax[1,1].fill_between(np.arange(2,test5_train.spctr_size['sliding'],
+                               test5_train.jump_WS_cov['sliding']),
+                     test5_train.lim_inf_cov,
+                     test5_train.lim_sup_cov,
+                     alpha=0.2); 
+
+test5_train.plot_Cov_Spectra(0,1,ax=ax[0,2],corr_or_cov='corr', percentile=50)
+test5_train.plot_Cov_Spectra(0,1,ax=ax[0,2],corr_or_cov='corr',
                              conf_region=[40,60])
+  
+ax[1,2].fill_between(np.arange(2,test5_train.spctr_size['sliding'],
+                               test5_train.jump_WS_cov['sliding']),
+                     test5_train.lim_inf_cov,
+                     test5_train.lim_sup_cov,
+                     alpha=0.2);
 
 ax[0,0].set_xlabel('Time')
 ax[0,0].set_title('Simulated signals')
@@ -183,43 +192,7 @@ ax[1,0].plot(t5,sinal5_2_test)
 
 test5_test.plot_Cov_Spectra(0,1,ax=ax[1,1],corr_or_cov='cov', percentile=50)
 
-test5_test.plot_Cov_Spectra(0,1,ax=ax[1,2],corr_or_cov='corr',percentile=50)
-
-ax[1,1].fill_between(np.arange(2,test5_train.spctr_size['sliding'],
-                               test5_train.jump_WS_cov['sliding']),
-                     test5_train.cov_spctr['sliding']
-                                           [40]
-                                           [
-                                            2::test5_train.\
-                                            jump_WS_cov['sliding'],
-                                            0,1
-                                           ].squeeze(),
-                     test5_train.cov_spctr['sliding']
-                                           [60]
-                                           [
-                                            2::test5_train.\
-                                            jump_WS_cov['sliding'],
-                                            0,1
-                                           ].squeeze(),
-                     alpha=0.2); 
-  
-ax[1,2].fill_between(np.arange(2,test5_train.spctr_size['sliding'],
-                               test5_train.jump_WS_cov['sliding']),
-                     test5_train.corr_spctr['sliding']
-                                           [40]
-                                           [
-                                            2::test5_train.\
-                                            jump_WS_cov['sliding'],
-                                            0,1
-                                           ].squeeze(),
-                     test5_train.corr_spctr['sliding']
-                                           [60]
-                                           [
-                                            2::test5_train.\
-                                            jump_WS_cov['sliding'],
-                                            0,1
-                                           ].squeeze(),
-                     alpha=0.2);  
+test5_test.plot_Cov_Spectra(0,1,ax=ax[1,2],corr_or_cov='corr',percentile=50)  
 
 ax[1,0].set_xlabel('Time')
 ax[1,0].set_title('Simulated signals')
@@ -251,7 +224,8 @@ fig.suptitle('Test 3')
 ax[0].set_title('Simulated signals')
 ax[0].set_xlabel('t')
 
-test3.plot_Lat_Var_Spectra(ax=ax[1],percentile=50,conf_region=[25,75])
+test3.plot_Lat_Var_Spectra(ax=ax[1],percentile=50)
+test3.plot_Lat_Var_Spectra(ax=ax[1],conf_region=[25,75])
 
 ax[1].set_title('Latent variance spectra')
 
@@ -267,4 +241,6 @@ test7 = spectra_dynamics(flot.iloc[:300],WS=50,step=10)
 test7.calc_Spectra_Dynamics('cov')
 test7.plot_Spectra_Dynamics(stat='corr',i=1,j=3)
 test7.plot_Spectra_Dynamics_Lines(stat='corr',i=1,j=3)
+test7.plot_Spectra_Dynamics_Video(stat='corr',i=1,j=3)
+#test7.anim.save('test7.mp4', metadata={'artist':'Guido'})
 

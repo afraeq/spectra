@@ -452,11 +452,11 @@ class spectra_dynamics ():
             fig = plt.figure()
             ax = fig.gca(projection=Axes3D.name)
                         
-        title = self.names[i]
-        if i != j:
-            title = title+'/'+self.names[j]
+            title = self.names[i]
+            if i != j:
+                title = title+'/'+self.names[j]
             
-        fig.suptitle(title)
+            fig.suptitle(title)
             
         def get_Points(x,y):
             if stat == 'var':
@@ -528,11 +528,11 @@ class spectra_dynamics ():
                             for k in range(len(self.spctr))])  
             ylabel='$r_{ij}$'
             
-        title = self.names[i]
-        if i != j:
-            title = title+'/'+self.names[j]
+            title = self.names[i]
+            if i != j:
+                title = title+'/'+self.names[j]
             
-        fig.suptitle(title)
+            fig.suptitle(title)
         
         normalize = mpl.colors.Normalize(0, len(self.spctr))
         colormap = mpl.cm.plasma
